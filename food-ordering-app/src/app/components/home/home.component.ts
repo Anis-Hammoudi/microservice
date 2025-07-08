@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FoodService, FoodItem } from '../../services/food.service';
 import { OrderService } from '../../services/order.service';
+import { AuthService } from '../../services/auth.service';
 
 interface CartItem extends FoodItem {
   quantity: number;
@@ -25,7 +26,8 @@ export class HomeComponent implements OnInit {
 
   constructor(
     private foodService: FoodService,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private authService: AuthService
   ) {}
 
   ngOnInit() {
@@ -96,8 +98,8 @@ export class HomeComponent implements OnInit {
       `${item.name} x${item.quantity}`
     );
 
-    // Using clientId 1 as default (no auth system)
-    this.orderService.createOrder(1, orderItems).subscribe({
+    // Le clientId sera automatiquement extrait du token JWT
+    this.orderService.createOrder(orderItems).subscribe({
       next: (order) => {
         this.lastOrderId = order.id!;
         this.orderStatus = `Commande #${order.id} créée avec succès! Statut: ${order.status}`;

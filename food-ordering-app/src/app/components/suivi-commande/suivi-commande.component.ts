@@ -1,7 +1,8 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OrderService, Order } from '../../services/order.service';
+import { AuthService } from '../../services/auth.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -10,14 +11,38 @@ import { Subscription } from 'rxjs';
   templateUrl: './suivi-commande.component.html',
   styleUrl: './suivi-commande.component.scss'
 })
-export class SuiviCommandeComponent implements OnDestroy {
+export class SuiviCommandeComponent implements OnInit, OnDestroy {
   searchOrderId: string = '';
   currentOrder: Order | null = null;
+  myOrders: Order[] = [];
   errorMessage: string = '';
   orderSubscription: Subscription | null = null;
   isPolling: boolean = false;
+  loading: boolean = false;
 
-  constructor(private orderService: OrderService) {}
+  constructor(
+    private orderService: OrderService,
+    private authService: AuthService
+  ) {}
+
+  ngOnInit() {
+    this.loadMyOrders();
+  }
+
+  loadMyOrders() {
+    this.loading = true;
+    this.orderService.getMyOrders().subscribe({
+      next: (orders) => {
+        this.myOrders = orders.sort((a, b) => (b.id || 0) - (a.id || 0)); // Trier par ID décroissant
+        this.loading = false;
+      },
+      error: (error) => {
+        console.error('Erreur lors du chargement des commandes:', error);
+        this.errorMessage = 'Erreur lors du chargement de vos commandes';
+        this.loading = false;
+      }
+    });
+  }
 
   searchOrder() {
     if (!this.searchOrderId) {

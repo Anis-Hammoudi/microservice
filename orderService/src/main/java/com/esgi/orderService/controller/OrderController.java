@@ -3,6 +3,7 @@ package com.esgi.orderService.controller;
 import com.esgi.orderService.kafka.OrderProducer;
 import com.esgi.orderService.model.Order;
 import com.esgi.orderService.repository.OrderRepository;
+import com.esgi.orderService.service.AuthServiceClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.LoggerFactory;
@@ -23,26 +24,44 @@ public class OrderController {
 
     private final OrderRepository repository;
     private final OrderProducer producer;
+    private final AuthServiceClient authServiceClient;
     private final ObjectMapper mapper = new ObjectMapper();
     private static final Logger log = (Logger) LoggerFactory.getLogger(OrderController.class);
 
     @PostMapping
-    public ResponseEntity<?> createOrder(@RequestBody Order order) {
-        order.setStatus("NEW");
-        Order saved = repository.save(order);
-
+    public ResponseEntity<?> createOrder(@RequestBody Order order, @RequestHeader("Authorization") String authHeader) {
         try {
-            String json = mapper.writeValueAsString(saved);
-            producer.sendOrder(json);
-            log.info("✅ Sending order to Kafka: {}", json);
+            // Extraire le token (enlever "Bearer ")
+            String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+            
+            // Récupérer les infos utilisateur depuis AuthService
+            AuthServiceClient.UserInfo userInfo = authServiceClient.getUserInfo(token);
+            
+            // Vérifier que l'utilisateur est un CLIENT
+            if (!"CLIENT".equals(userInfo.getRole())) {
+                return ResponseEntity.badRequest().body("Seuls les clients peuvent passer des commandes");
+            }
+            
+            // Définir le clientId automatiquement
+            order.setClientId(userInfo.getUserId());
+            order.setStatus("NEW");
+            Order saved = repository.save(order);
 
+            try {
+                String json = mapper.writeValueAsString(saved);
+                producer.sendOrder(json);
+                log.info("✅ Sending order to Kafka: {}", json);
+            } catch (Exception e) {
+                log.error("Failed to send order to Kafka", e);
+                return ResponseEntity.internalServerError().body("Erreur Kafka");
+            }
+
+            return ResponseEntity.ok(saved);
+            
         } catch (Exception e) {
-            log.error("Failed to send order to Kafka", e);
-
-            return ResponseEntity.internalServerError().body("Erreur Kafka");
+            log.error("Error processing order", e);
+            return ResponseEntity.badRequest().body("Token invalide ou erreur d'authentification");
         }
-
-        return ResponseEntity.ok(saved);
     }
 
     @GetMapping("/{id}")
@@ -56,12 +75,36 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Order>> getOrdersByClientId(@RequestParam(required = false) Long clientId) {
+    public ResponseEntity<List<Order>> getOrdersByClientId(
+            @RequestParam(required = false) Long clientId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        
+        if (authHeader != null) {
+            try {
+                // Authentifier l'utilisateur
+                String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+                AuthServiceClient.UserInfo userInfo = authServiceClient.getUserInfo(token);
+                
+                // Si c'est un CLIENT, il ne peut voir que ses propres commandes
+                if ("CLIENT".equals(userInfo.getRole())) {
+                    List<Order> orders = repository.findByClientId(userInfo.getUserId());
+                    return ResponseEntity.ok(orders);
+                } 
+                // Si c'est un CHEF ou LIVREUR, il peut voir toutes les commandes
+                else if ("CHEF".equals(userInfo.getRole()) || "LIVREUR".equals(userInfo.getRole())) {
+                    List<Order> orders = repository.findAll();
+                    return ResponseEntity.ok(orders);
+                }
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+        
+        // Fallback pour compatibilité (si pas d'auth header)
         if (clientId != null) {
             List<Order> orders = repository.findByClientId(clientId);
             return ResponseEntity.ok(orders);
         } else {
-            // Return all orders if no clientId specified
             List<Order> orders = repository.findAll();
             return ResponseEntity.ok(orders);
         }

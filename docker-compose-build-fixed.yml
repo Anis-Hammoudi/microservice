@@ -55,6 +55,24 @@ services:
       timeout: 10s
       retries: 5
 
+  # Base de données pour Auth Service
+  postgres-auth:
+    image: postgres:15
+    container_name: pg-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgress
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata-auth:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgress"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
@@ -82,6 +100,20 @@ services:
       timeout: 10s
       retries: 5
 
+  auth-service:
+    build:
+      context: ./AuthService
+      dockerfile: Dockerfile
+    container_name: auth-service
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-auth:5432/auth_db
+    restart: unless-stopped
+
   order-service:
     build: 
       context: ./orderService
@@ -92,11 +124,14 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      auth-service:
+        condition: service_started
     ports:
       - "8081:8081"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-orders:5432/orders
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - AUTH_SERVICE_URL=http://auth-service:8084/auth
     restart: unless-stopped
 
   kitchen-service:
@@ -136,4 +171,5 @@ services:
 volumes:
   pgdata-orders:
   pgdata-kitchen:
-  pgdata-delivery: 
+  pgdata-delivery:
+  pgdata-auth: 

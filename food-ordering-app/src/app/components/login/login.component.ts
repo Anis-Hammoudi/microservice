@@ -1,12 +1,51 @@
 import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { AuthService, LoginRequest } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [RouterLink],
+  imports: [RouterLink, FormsModule, CommonModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss'
 })
 export class LoginComponent {
+  loginData: LoginRequest = {
+    email: '',
+    password: ''
+  };
+  
+  loading = false;
+  error = '';
 
+  constructor(
+    private authService: AuthService,
+    private router: Router
+  ) {}
+
+  onSubmit() {
+    if (!this.loginData.email || !this.loginData.password) {
+      this.error = 'Veuillez remplir tous les champs';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    this.authService.login(this.loginData).subscribe({
+      next: (response) => {
+        console.log('Connexion réussie', response);
+        this.router.navigate(['/']);
+      },
+      error: (error) => {
+        console.error('Erreur de connexion', error);
+        this.error = 'Email ou mot de passe incorrect';
+        this.loading = false;
+      },
+      complete: () => {
+        this.loading = false;
+      }
+    });
+  }
 }
