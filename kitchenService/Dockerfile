@@ -1,24 +1,35 @@
+# Stage 1: Build the application using Maven
+FROM openjdk:17-jdk-slim AS builder
+
+WORKDIR /app
+
+# Copy Maven wrapper and pom.xml for dependency caching
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+
+# Grant execution permissions and download dependencies
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+
+# Copy the rest of the source code and build the application
+COPY src src
+RUN ./mvnw clean package -DskipTests
+
+# Stage 2: Create the final, smaller runtime image
 FROM openjdk:17-jdk-slim
 
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml first for better caching
-COPY mvnw .
-COPY mvnw.cmd .
-COPY .mvn .mvn
-COPY pom.xml .
+# Create a non-root user for better security
+RUN addgroup --system spring && adduser --system --ingroup spring spring
+USER spring:spring
 
-# Download dependencies
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+# Copy only the built JAR file from the 'builder' stage
+# This assumes your final JAR is the only one in the target directory after a clean package
+COPY --from=builder /app/target/*.jar app.jar
 
-# Copy source code
-COPY src src
-
-# Build the application
-RUN ./mvnw clean package -DskipTests
-
-# Expose port
+# Expose the port the application runs on
 EXPOSE 8082
 
-# Run the application (use wildcard to handle any JAR name)
-CMD ["sh", "-c", "java -jar target/*.jar"] 
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]

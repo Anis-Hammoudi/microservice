@@ -1,6 +1,5 @@
 package com.esgi.kitchenService.kafka;
 
-
 import com.esgi.kitchenService.dto.OrderDTO;
 import com.esgi.kitchenService.model.Order;
 import com.esgi.kitchenService.repository.OrderRepository;
@@ -11,7 +10,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-
 
 @Slf4j
 @Service
@@ -36,13 +34,19 @@ public class OrderKafkaListener {
             order.setItems(dto.getItems());
             order.setStatus("READY");
 
-            repository.save(order);
-
-            // Send new Kafka event to delivery service
-            dto.setStatus("READY");
-            String updatedJson = objectMapper.writeValueAsString(dto);
-            kafkaTemplate.send("kitchen.ready", updatedJson);
-            log.info("✅ Order sent to delivery-service: {}", updatedJson);
+            new Thread(() -> {
+                try {
+                    Thread.sleep(10000); // Simulate 10 seconds delivery time
+                    // Send new Kafka event to delivery service
+                    dto.setStatus("READY");
+                    String updatedJson = objectMapper.writeValueAsString(dto);
+                    kafkaTemplate.send("kitchen.ready", updatedJson);
+                    repository.save(order);
+                    log.info("✅ Order sent to delivery-service: {}", updatedJson);
+                } catch (Exception e) {
+                    log.error("❌ Failed in background processing for order: {}", dto, e);
+                }
+            }).start();
 
         } catch (Exception e) {
             log.error("❌ Failed to process order: {}", record.value(), e);

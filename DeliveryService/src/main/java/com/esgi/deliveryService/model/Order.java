@@ -6,23 +6,20 @@ import lombok.*;
 import java.util.List;
 
 @Entity
-@Table(name = "delivery_orders")
+@Table(name = "orders")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Order {
     @Id
-    private Long id;  // Same as order service ID
-    
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private Long clientId;
-    
+
     @ElementCollection
     private List<String> items;
-    
-    private String status;
-    
-    private String deliveryAddress;
-    private String deliveryPhone;
-    private String deliveryNotes;
-} 
+
+    private String status; // NEW, SENT, CANCELLED, etc.
+}
