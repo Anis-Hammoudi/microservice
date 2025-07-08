@@ -8,8 +8,8 @@
           <h1 class="text-2xl font-bold text-orange-600">FoodOrder</h1>
         </div>
 
-        <!-- Navigation Links -->
-        <div class="hidden md:block">
+        <!-- Navigation Links (si connecté) -->
+        <div class="hidden md:block" *ngIf="isLoggedIn()">
           <div class="ml-10 flex items-baseline space-x-4">
             <a routerLink="/home" 
                routerLinkActive="bg-orange-100 text-orange-700"
@@ -24,8 +24,8 @@
           </div>
         </div>
 
-        <!-- Auth Links -->
-        <div class="hidden md:block">
+        <!-- Auth Links (si non connecté) -->
+        <div class="hidden md:block" *ngIf="!isLoggedIn()">
           <div class="ml-4 flex items-center md:ml-6 space-x-3">
             <a routerLink="/login" 
                class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors">
@@ -35,6 +35,20 @@
                class="px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700 transition-colors">
               Inscription
             </a>
+          </div>
+        </div>
+
+        <!-- User Menu (si connecté) -->
+        <div class="hidden md:block" *ngIf="isLoggedIn()">
+          <div class="ml-4 flex items-center md:ml-6 space-x-3">
+            <span class="text-sm text-gray-700" *ngIf="currentUser$ | async as user">
+              Bonjour, {{ user.email }} ({{ user.role }})
+            </span>
+            <button 
+               (click)="logout()"
+               class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
+              Déconnexion
+            </button>
           </div>
         </div>
 

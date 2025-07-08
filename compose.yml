@@ -1,28 +1,19 @@
-version: '3.8'
 
-# Define a default configuration for the microservices to avoid repetition
 x-service-defaults: &service-defaults
   restart: unless-stopped
-  depends_on:
-    postgres:
-      condition: service_healthy
-    kafka:
-      condition: service_healthy
-    zipkin:
-      condition: service_started
-  environment:
-    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-    # Set the datasource URL to point to the single 'orders' database
-    - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orders
-    - SPRING_DATASOURCE_USERNAME=postgress
-    - SPRING_DATASOURCE_PASSWORD=admin
-    # Set the Zipkin URL to point to the Zipkin service
-    - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
   networks:
     - microservices-network
+  depends_on:
+    kafka: { condition: service_healthy }
+    zipkin: { condition: service_started }
+  environment:
+    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    - SPRING_DATASOURCE_USERNAME=postgress
+    - SPRING_DATASOURCE_PASSWORD=admin
 
 services:
-  # Single PostgreSQL instance for all microservices
+  # === DATABASES ===
   postgres:
     image: postgres:15
     container_name: pg-orders
@@ -30,19 +21,32 @@ services:
       POSTGRES_DB: orders
       POSTGRES_USER: postgress
       POSTGRES_PASSWORD: admin
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
-      test: [ "CMD-SHELL", "psql -U postgress -d orders -c '\\q'" ]
+      test: ["CMD-SHELL", "psql -U postgress -d orders -c '\\q'"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - microservices-network
+    networks: [microservices-network]
 
-  # Zookeeper and Kafka for messaging
+  postgres-auth:
+    image: postgres:15
+    container_name: pg-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgress
+      POSTGRES_PASSWORD: admin
+    ports: ["5435:5432"]
+    volumes: ["pgdata-auth:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgress -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [microservices-network] # <-- FIXED: Added to the correct network
+
+  # === INFRASTRUCTURE ===
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment: { ZOOKEEPER_CLIENT_PORT: 2181 }
@@ -50,8 +54,8 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    depends_on: [ zookeeper ]
-    ports: [ "9092:9092" ]
+    depends_on: [zookeeper]
+    ports: ["9092:9092"]
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -59,41 +63,102 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     healthcheck:
-      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - microservices-network
+    networks: [microservices-network]
 
-  # Zipkin for Distributed Tracing
   zipkin:
     image: openzipkin/zipkin:2
-    ports:
-      - "9411:9411"
-    networks:
-      - microservices-network
+    ports: ["9411:9411"]
+    networks: [microservices-network]
 
-  # --- Microservices ---
-
+  # === BACKEND MICROSERVICES ===
   order-service:
-    <<: *service-defaults # Inherit common properties
+    <<: *service-defaults
     build: ./orderService
     ports: ["8081:8081"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+      - SPRING_DATASOURCE_USERNAME=postgress
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orders
+    healthcheck: # <-- FIXED: Added missing healthcheck
+      test: ["CMD", "curl", "--fail", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   kitchen-service:
-    <<: *service-defaults # Inherit common properties
+    <<: *service-defaults
     build: ./kitchenService
     ports: ["8082:8082"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+      - SPRING_DATASOURCE_USERNAME=postgress
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orders
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   delivery-service:
-    <<: *service-defaults # Inherit common properties
+    <<: *service-defaults
     build: ./DeliveryService
     ports: ["8083:8083"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres: { condition: service_healthy }
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+      - SPRING_DATASOURCE_USERNAME=postgress
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orders
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-# Define the custom network and shared volume
+  auth-service:
+    <<: *service-defaults
+    build: ./AuthService
+    ports: ["8084:8084"] # Internal Spring port is 8080 by default
+    depends_on:
+      postgres-auth: { condition: service_healthy }
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-auth:5432/auth_db
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8084/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # === FRONTEND ===
+  frontend:
+    build:
+      context: ./food-ordering-app
+    ports: ["4200:80"]
+    depends_on:
+      order-service: { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+    networks: [microservices-network]
+
 networks:
   microservices-network:
     driver: bridge
+
 volumes:
   pgdata:
+  pgdata-auth:

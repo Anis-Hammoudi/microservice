@@ -1,14 +1,11 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './components/login/login.component';
-import { RegisterComponent } from './components/register/register.component';
-import { HomeComponent } from './components/home/home.component';
-import { SuiviCommandeComponent } from './components/suivi-commande/suivi-commande.component';
+import { AuthGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
-  { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
-  { path: 'home', component: HomeComponent },
-  { path: 'suivi-commande', component: SuiviCommandeComponent },
-  { path: '**', redirectTo: '/home' } // Route wildcard pour les pages non trouvées
+  { path: 'login', loadComponent: () => import('./components/login/login.component').then(m => m.LoginComponent) },
+  { path: 'register', loadComponent: () => import('./components/register/register.component').then(m => m.RegisterComponent) },
+  { path: 'home', loadComponent: () => import('./components/home/home.component').then(m => m.HomeComponent), canActivate: [AuthGuard] },
+  { path: 'suivi-commande', loadComponent: () => import('./components/suivi-commande/suivi-commande.component').then(m => m.SuiviCommandeComponent), canActivate: [AuthGuard] },
+  { path: '**', redirectTo: '/home' }
 ];

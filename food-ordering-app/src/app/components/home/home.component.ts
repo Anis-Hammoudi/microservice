@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { FoodService, FoodItem } from '../../services/food.service';
 import { OrderService } from '../../services/order.service';
+import { AuthService } from '../../services/auth.service';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 interface CartItem extends FoodItem {
   quantity: number;
@@ -10,9 +11,10 @@ interface CartItem extends FoodItem {
 
 @Component({
   selector: 'app-home',
-  imports: [CommonModule, FormsModule],
+  standalone: true, // <-- Important for standalone
+  imports: [CommonModule, FormsModule], // <-- Add needed modules
   templateUrl: './home.component.html',
-  styleUrl: './home.component.scss'
+  styleUrls: ['./home.component.scss'],
 })
 export class HomeComponent implements OnInit {
   menuItems: FoodItem[] = [];
@@ -25,7 +27,8 @@ export class HomeComponent implements OnInit {
 
   constructor(
     private foodService: FoodService,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private authService: AuthService
   ) {}
 
   ngOnInit() {
@@ -34,13 +37,13 @@ export class HomeComponent implements OnInit {
   }
 
   loadMenuItems() {
-    this.foodService.getMenuItems().subscribe(items => {
+    this.foodService.getMenuItems().subscribe((items: FoodItem[]) => {
       this.menuItems = items;
     });
   }
 
   loadCategories() {
-    this.foodService.getCategories().subscribe(categories => {
+    this.foodService.getCategories().subscribe((categories: string[]) => {
       this.categories = categories;
     });
   }
@@ -48,7 +51,7 @@ export class HomeComponent implements OnInit {
   filterByCategory(category: string) {
     this.selectedCategory = category;
     if (category) {
-      this.foodService.getItemsByCategory(category).subscribe(items => {
+      this.foodService.getItemsByCategory(category).subscribe((items: FoodItem[]) => {
         this.menuItems = items;
       });
     } else {
@@ -91,25 +94,20 @@ export class HomeComponent implements OnInit {
       return;
     }
 
-    // Create order items array with quantities
-    const orderItems = this.cart.map(item => 
-      `${item.name} x${item.quantity}`
-    );
+    const orderItems = this.cart.map(item => `${item.name} x${item.quantity}`);
 
-    // Using clientId 1 as default (no auth system)
-    this.orderService.createOrder(1, orderItems).subscribe({
-      next: (order) => {
+    this.orderService.createOrder(orderItems).subscribe({
+      next: (order: any) => {
         this.lastOrderId = order.id!;
         this.orderStatus = `Commande #${order.id} créée avec succès! Statut: ${order.status}`;
         this.cart = [];
         this.showCart = false;
-        
-        // Show success message
+
         setTimeout(() => {
           alert(`Votre commande #${order.id} a été envoyée à la cuisine!`);
         }, 500);
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error('Erreur lors de la création de la commande:', error);
         this.orderStatus = 'Erreur lors de la création de la commande. Veuillez réessayer.';
       }

@@ -1,12 +1,34 @@
 import { Component } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { AuthService, UserInfo } from './services/auth.service';
+import { Observable } from 'rxjs';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule], // <-- missing comma fixed!
+  templateUrl: './app.component.html', // <-- update path if this is app.component
+  styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
   title = 'food-ordering-app';
+  currentUser$: Observable<UserInfo | null>;
+
+  constructor(
+    private authService: AuthService,
+    private router: Router
+  ) {
+    this.currentUser$ = this.authService.currentUser$;
+  }
+
+  logout() {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+
+  isLoggedIn(): boolean {
+    return this.authService.isLoggedIn();
+  }
 }

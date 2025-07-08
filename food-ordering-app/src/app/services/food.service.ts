@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError,tap } from 'rxjs/operators';
 
 export interface FoodItem {
   id: number;
@@ -23,16 +23,18 @@ export class FoodService {
 
   getMenuItems(): Observable<FoodItem[]> {
     return this.http.get<FoodItem[]>(this.apiUrl).pipe(
+      tap(data => console.log('Received menu items:', data)),
       catchError(error => {
         console.error('Error fetching menu items:', error);
-        // Fallback to hardcoded items if API fails
         return of(this.getHardcodedItems());
       })
     );
   }
 
+
   getItemsByCategory(category: string): Observable<FoodItem[]> {
     return this.http.get<FoodItem[]>(`${this.apiUrl}?category=${category}`).pipe(
+      tap(data => console.log(`Received items for category ${category}:`, data)),
       catchError(error => {
         console.error('Error fetching items by category:', error);
         const items = this.getHardcodedItems().filter(item => item.category === category);
@@ -41,8 +43,10 @@ export class FoodService {
     );
   }
 
+
   getItemById(id: number): Observable<FoodItem | undefined> {
     return this.http.get<FoodItem>(`${this.apiUrl}/${id}`).pipe(
+      tap(data => console.log(`Received item with id ${id}:`, data)),
       catchError(error => {
         console.error('Error fetching item by id:', error);
         const item = this.getHardcodedItems().find(item => item.id === id);
@@ -53,6 +57,7 @@ export class FoodService {
 
   getCategories(): Observable<string[]> {
     return this.http.get<string[]>(`${this.apiUrl}/categories`).pipe(
+      tap(data => console.log('Received categories:', data)),
       catchError(error => {
         console.error('Error fetching categories:', error);
         const categories = [...new Set(this.getHardcodedItems().map(item => item.category))];

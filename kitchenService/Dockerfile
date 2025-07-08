@@ -15,8 +15,13 @@ RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
 COPY src src
 RUN ./mvnw clean package -DskipTests
 
+
+# --------------------------------------------------------------------
 # Stage 2: Create the final, smaller runtime image
 FROM openjdk:17-jdk-slim
+
+# MOVED THE INSTALL COMMAND HERE
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -25,7 +30,6 @@ RUN addgroup --system spring && adduser --system --ingroup spring spring
 USER spring:spring
 
 # Copy only the built JAR file from the 'builder' stage
-# This assumes your final JAR is the only one in the target directory after a clean package
 COPY --from=builder /app/target/*.jar app.jar
 
 # Expose the port the application runs on
