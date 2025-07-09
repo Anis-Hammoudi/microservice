@@ -5,7 +5,7 @@ x-service-defaults: &service-defaults
     - microservices-network
   depends_on:
     kafka: { condition: service_healthy }
-    zipkin: { condition: service_started }
+    zipkin: { condition: service_healthy }
   environment:
     - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
@@ -71,8 +71,13 @@ services:
 
   zipkin:
     image: openzipkin/zipkin:2
-    ports: ["9411:9411"]
-    networks: [microservices-network]
+    ports: [ "9411:9411" ]
+    networks: [ microservices-network ]
+    healthcheck: # <-- REPLACE THIS ENTIRE BLOCK
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9411/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # === BACKEND MICROSERVICES ===
   order-service:
@@ -81,12 +86,14 @@ services:
     ports: ["8081:8081"]
     depends_on:
       postgres: { condition: service_healthy }
+      zipkin: { condition: service_healthy }
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
       - SPRING_DATASOURCE_USERNAME=postgress
       - SPRING_DATASOURCE_PASSWORD=admin
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orders
+      - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
     healthcheck: # <-- FIXED: Added missing healthcheck
       test: ["CMD", "curl", "--fail", "http://localhost:8081/actuator/health"]
       interval: 10s
@@ -99,12 +106,14 @@ services:
     ports: ["8082:8082"]
     depends_on:
       postgres: { condition: service_healthy }
+      zipkin: { condition: service_healthy }
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
       - SPRING_DATASOURCE_USERNAME=postgress
       - SPRING_DATASOURCE_PASSWORD=admin
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orders
+      - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8082/actuator/health"]
       interval: 10s
@@ -119,12 +128,14 @@ services:
       kafka:
         condition: service_healthy
       postgres: { condition: service_healthy }
+      zipkin: { condition: service_healthy }
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
       - SPRING_DATASOURCE_USERNAME=postgress
       - SPRING_DATASOURCE_PASSWORD=admin
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orders
+      - MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8083/actuator/health"]
       interval: 10s
@@ -137,6 +148,7 @@ services:
     ports: ["8084:8084"] # Internal Spring port is 8080 by default
     depends_on:
       postgres-auth: { condition: service_healthy }
+      zipkin: { condition: service_healthy }
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-auth:5432/auth_db
     healthcheck:
