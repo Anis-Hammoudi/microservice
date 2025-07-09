@@ -33,7 +33,14 @@ export const routes: Routes = [
     data: { expectedRole: 'CHEF' }
   },
 
-  // Fallback route: if no other route matches, redirect to home.
-  // The guards on the '/home' route itself will handle unauthorized access.
+  // --- DELIVERY Route ---
+  {
+    path: 'delivery',
+    loadComponent: () => import('./components/delivery/delivery.component').then(m => m.DeliveryComponent),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { expectedRole: 'LIVREUR' } // Assumes a 'DELIVERY' role exists
+  },
+
+  // Fallback route
   { path: '**', redirectTo: '/home' }
 ];

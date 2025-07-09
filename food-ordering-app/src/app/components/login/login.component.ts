@@ -6,10 +6,10 @@ import { AuthService, LoginRequest } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  standalone: true, // standalone is often used with new components
+  standalone: true,
   imports: [RouterLink, FormsModule, CommonModule],
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.scss'] // Corrected styleUrl to styleUrls
+  styleUrls: ['./login.component.scss']
 })
 export class LoginComponent {
   loginData: LoginRequest = {
@@ -27,7 +27,7 @@ export class LoginComponent {
 
   onSubmit() {
     if (!this.loginData.email || !this.loginData.password) {
-      this.error = 'Veuillez remplir tous les champs'; // Please fill all fields
+      this.error = 'Veuillez remplir tous les champs';
       return;
     }
 
@@ -39,19 +39,20 @@ export class LoginComponent {
         console.log('Connexion réussie, redirection selon le rôle...', response);
 
         // --- UPDATED REDIRECTION LOGIC ---
-        // Redirect the user based on their role from the login response.
         if (response.role === 'CHEF') {
           this.router.navigate(['/kitchen']);
+        } else if (response.role === 'LIVREUR') { // FIX: Added redirect for DELIVERY role
+          this.router.navigate(['/delivery']);
         } else if (response.role === 'CLIENT') {
           this.router.navigate(['/home']);
         } else {
-          // Default redirect for any other roles or if role is not specified.
+          // Default redirect for any other roles.
           this.router.navigate(['/home']);
         }
       },
       error: (error) => {
         console.error('Erreur de connexion', error);
-        this.error = 'Email ou mot de passe incorrect'; // Incorrect email or password
+        this.error = 'Email ou mot de passe incorrect';
         this.loading = false;
       },
       complete: () => {
