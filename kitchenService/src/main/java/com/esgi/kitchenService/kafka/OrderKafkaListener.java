@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -17,8 +16,7 @@ import org.springframework.stereotype.Service;
 public class OrderKafkaListener {
 
     private final ObjectMapper objectMapper;
-    private final OrderRepository repository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final OrderRepository orderRepository;
 
     @KafkaListener(topics = "orders.created", groupId = "kitchen-group")
     public void listen(ConsumerRecord<String, String> record) {
@@ -27,29 +25,19 @@ public class OrderKafkaListener {
             OrderDTO dto = objectMapper.readValue(json, OrderDTO.class);
             log.info("🍽️ New order received in Kitchen: {}", dto);
 
-            // Update status and persist
-            Order order = new Order();
-            order.setId(dto.getId());
-            order.setClientId(dto.getClientId());
-            order.setItems(dto.getItems());
-            order.setStatus("READY");
+            // Create and save the order with an initial "PREPARING" status
+            Order order = Order.builder()
+                    .id(dto.getId())
+                    .clientId(dto.getClientId())
+                    .items(dto.getItems())
+                    .status("PREPARING") // New initial status
+                    .build();
 
-            new Thread(() -> {
-                try {
-                    Thread.sleep(10000); // Simulate 10 seconds delivery time
-                    // Send new Kafka event to delivery service
-                    dto.setStatus("READY");
-                    String updatedJson = objectMapper.writeValueAsString(dto);
-                    kafkaTemplate.send("kitchen.ready", updatedJson);
-                    repository.save(order);
-                    log.info("✅ Order sent to delivery-service: {}", updatedJson);
-                } catch (Exception e) {
-                    log.error("❌ Failed in background processing for order: {}", dto, e);
-                }
-            }).start();
+            orderRepository.save(order);
+            log.info("✅ Order {} saved to the database and is now being prepared.", order.getId());
 
         } catch (Exception e) {
-            log.error("❌ Failed to process order: {}", record.value(), e);
+            log.error("❌ Failed to process incoming order: {}", record.value(), e);
         }
     }
 }

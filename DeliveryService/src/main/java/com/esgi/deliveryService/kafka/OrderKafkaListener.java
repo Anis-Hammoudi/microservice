@@ -23,38 +23,21 @@ public class OrderKafkaListener {
         try {
             String json = record.value();
             OrderDTO orderDTO = objectMapper.readValue(json, OrderDTO.class);
-            log.info("🚚 New order ready for delivery: {}", orderDTO);
-            
-            // Save order to delivery database
+            log.info("🍽️ Received ready order from kitchen: {}", orderDTO);
+
+            // Build the order with a new status
             Order order = Order.builder()
                     .id(orderDTO.getId())
                     .clientId(orderDTO.getClientId())
                     .items(orderDTO.getItems())
-                    .status("IN_DELIVERY")
+                    .status("READY_FOR_PICKUP") // New status
                     .build();
-            
+
             orderRepository.save(order);
-            log.info("✅ Order saved to delivery service with status IN_DELIVERY");
-            
-            // Simulate delivery process (in real app, this would be more complex)
-            simulateDelivery(order);
-            
+            log.info("✅ Order {} saved and is ready for pickup.", order.getId());
+
         } catch (Exception e) {
-            log.error("❌ Failed to process order for delivery: {}", record.value(), e);
+            log.error("❌ Failed to process ready order: {}", record.value(), e);
         }
-    }
-    
-    private void simulateDelivery(Order order) {
-        // In a real application, this would involve driver assignment, route calculation, etc.
-        new Thread(() -> {
-            try {
-                Thread.sleep(10000); // Simulate 10 seconds delivery time
-                order.setStatus("DELIVERED");
-                orderRepository.save(order);
-                log.info("✅ Order {} has been delivered!", order.getId());
-            } catch (InterruptedException e) {
-                log.error("Delivery simulation interrupted", e);
-            }
-        }).start();
     }
 }

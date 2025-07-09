@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable, BehaviorSubject, of } from 'rxjs';
+import { tap, switchMap, map, catchError } from 'rxjs/operators';
 
 export interface AuthResponse {
   token: string;
@@ -34,7 +34,6 @@ export class AuthService {
   public currentUser$ = this.currentUserSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    // Vérifier si un token existe déjà au démarrage
     this.initializeFromToken();
   }
 
@@ -48,13 +47,28 @@ export class AuthService {
     }
   }
 
+  /**
+   * FIX: This method now ensures user info is fetched and the app's state is updated
+   * before returning a value to the component, preventing race conditions with route guards.
+   */
   login(credentials: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials).pipe(
-      tap(response => {
-        localStorage.setItem('token', response.token);
-        this.getUserInfo().subscribe(userInfo => {
-          this.currentUserSubject.next(userInfo);
-        });
+      switchMap(authResponse => {
+        // 1. Save the token immediately.
+        localStorage.setItem('token', authResponse.token);
+
+        // 2. Fetch the full user info using the new token.
+        return this.getUserInfo().pipe(
+          // 3. Update the BehaviorSubject with the fetched user info.
+          tap(userInfo => {
+            this.currentUserSubject.next(userInfo);
+            console.log('AuthService: currentUserSubject has been updated.', userInfo);
+          }),
+          // 4. Map the stream back to the original authResponse.
+          // The component's `subscribe` block needs this original response
+          // to perform the role-based redirection.
+          map(() => authResponse)
+        );
       })
     );
   }
@@ -66,6 +80,8 @@ export class AuthService {
   logout() {
     localStorage.removeItem('token');
     this.currentUserSubject.next(null);
+    // Consider navigating to login page here if not handled elsewhere
+    // this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
@@ -81,18 +97,12 @@ export class AuthService {
   }
 
   getUserInfo(): Observable<UserInfo> {
-    const token = this.getToken();
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`
-    });
+    const headers = this.getAuthHeaders();
     return this.http.get<UserInfo>(`${this.apiUrl}/user-info`, { headers });
   }
 
   validateToken(): Observable<UserInfo> {
-    const token = this.getToken();
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`
-    });
+    const headers = this.getAuthHeaders();
     return this.http.get<UserInfo>(`${this.apiUrl}/validate`, { headers });
   }
 
