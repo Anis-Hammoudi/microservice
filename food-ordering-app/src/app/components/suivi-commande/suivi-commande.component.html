@@ -1,0 +1,89 @@
+<div class="container mx-auto p-6">
+  <h1 class="text-3xl font-bold text-gray-800 mb-8">Suivi de votre commande</h1>
+
+  <!-- Order Search -->
+  <div class="mb-8 max-w-md">
+    <label for="order-number" class="block text-sm font-medium text-gray-700 mb-2">
+      Numéro de commande
+    </label>
+    <div class="flex">
+      <input
+        type="text"
+        id="order-number"
+        [(ngModel)]="searchOrderId"
+        placeholder="Ex: 123"
+        class="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+      />
+      <button
+        type="button"
+        (click)="searchOrder()"
+        class="px-6 py-2 bg-orange-600 text-white rounded-r-lg hover:bg-orange-700 transition-colors font-medium"
+      >
+        Rechercher
+      </button>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="errorMessage" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+    {{ errorMessage }}
+  </div>
+
+  <!-- Current Order Status -->
+  <div *ngIf="currentOrder" class="bg-white rounded-lg shadow-lg p-6 mb-8">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-semibold text-gray-800">Commande #{{ currentOrder.id }}</h2>
+        <p class="text-gray-600">Client ID: {{ currentOrder.clientId }}</p>
+      </div>
+      <div class="text-right">
+        <span class="inline-block px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+          {{ getStatusLabel(currentOrder.status!) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-orange-600">Progression</span>
+        <span class="text-sm text-gray-500">{{ getStatusProgress(currentOrder.status!) }}%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div class="bg-orange-600 h-2 rounded-full" [style.width.%]="getStatusProgress(currentOrder.status!)"></div>
+      </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="mt-6">
+      <h3 class="text-lg font-semibold text-gray-800 mb-4">Articles commandés</h3>
+      <ul class="space-y-2">
+        <li *ngFor="let item of currentOrder.items" class="text-gray-600">
+          • {{ item }}
+        </li>
+      </ul>
+    </div>
+
+    <!-- Real-time update indicator -->
+    <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg" *ngIf="isPolling">
+      <div class="flex items-center">
+        <svg class="animate-spin h-5 w-5 mr-2 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-sm text-green-800">
+          <strong>Mise à jour en temps réel activée</strong> - Le statut se rafraîchit automatiquement toutes les 3 secondes.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions when no order is loaded -->
+  <div *ngIf="!currentOrder && !errorMessage" class="bg-gray-50 rounded-lg p-8 text-center">
+    <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+    </svg>
+    <h3 class="text-lg font-medium text-gray-900 mb-2">Recherchez votre commande</h3>
+    <p class="text-gray-600">Entrez votre numéro de commande pour voir son statut</p>
+  </div>
+</div>

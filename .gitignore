@@ -1,0 +1,34 @@
+# Node
+node_modules/
+dist/
+# Angular
+/.angular/cache/
+/.angular/config.json
+# Java
+**/target/
+**/.classpath
+**/.project
+**/.settings/
+**/.idea/
+**/*.iml
+# Maven
+**/logs/
+**/mvnw*
+**/.mvn/
+# OS
+.DS_Store
+Thumbs.db
+# Docker
+**/*.log
+**/.env
+# VSCode
+.vscode/
+# Others
+*.swp
+*.swo
+# Environment
+.env
+.env.*
+# Generated
+postgres-init/init.sql
+

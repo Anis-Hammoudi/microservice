@@ -1,0 +1,78 @@
+<div class="container mx-auto p-6 bg-gray-50 min-h-screen">
+  <h1 class="text-4xl font-bold text-gray-800 mb-6 border-b pb-4">
+    🚚 Delivery Orders
+  </h1>
+
+  <!-- Success/Error Messages -->
+  <div *ngIf="message" class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-md" role="alert">
+    <p class="font-bold">Success</p>
+    <p>{{ message }}</p>
+  </div>
+  <div *ngIf="error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-md" role="alert">
+    <p class="font-bold">Error</p>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Orders Table -->
+  <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full leading-normal">
+        <thead>
+        <tr class="bg-gray-200 text-gray-600 uppercase text-sm">
+          <th class="py-3 px-6 text-left">Order ID</th>
+          <th class="py-3 px-6 text-left">Client ID</th>
+          <th class="py-3 px-6 text-left">Items</th>
+          <th class="py-3 px-6 text-center">Status</th>
+          <th class="py-3 px-6 text-center">Action</th>
+        </tr>
+        </thead>
+        <tbody class="text-gray-700">
+        <ng-container *ngIf="orders$ | async as orders; else loading">
+          <tr *ngIf="orders.length === 0">
+            <td colspan="5" class="text-center py-10 text-gray-500">
+              No orders found.
+            </td>
+          </tr>
+          <tr *ngFor="let order of orders" class="border-b border-gray-200 hover:bg-gray-100">
+            <td class="py-4 px-6 text-left whitespace-nowrap">
+              <span class="font-semibold">#{{ order.id }}</span>
+            </td>
+            <td class="py-4 px-6 text-left">{{ order.clientId }}</td>
+            <td class="py-4 px-6 text-left">
+              <ul class="list-disc list-inside">
+                <li *ngFor="let item of order.items">{{ item }}</li>
+              </ul>
+            </td>
+            <td class="py-4 px-6 text-center">
+                <span [ngClass]="{
+                  'bg-blue-200 text-blue-800': order.status === 'READY_FOR_PICKUP',
+                  'bg-yellow-200 text-yellow-800': order.status === 'IN_DELIVERY',
+                  'bg-green-200 text-green-800': order.status === 'DELIVERED'
+                }" class="py-1 px-3 rounded-full text-xs font-semibold">
+                  {{ displayStatus(order.status) }}
+                </span>
+            </td>
+            <td class="py-4 px-6 text-center">
+              <button *ngIf="order.status === 'READY_FOR_PICKUP'"
+                      (click)="onStartDelivery(order.id)"
+                      class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 ease-in-out transform hover:scale-105">
+                Start Delivery
+              </button>
+              <span *ngIf="order.status !== 'READY_FOR_PICKUP'" class="text-gray-400 italic">
+                  No action
+                </span>
+            </td>
+          </tr>
+        </ng-container>
+        <ng-template #loading>
+          <tr>
+            <td colspan="5" class="text-center py-10 text-gray-500">
+              Loading orders...
+            </td>
+          </tr>
+        </ng-template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
